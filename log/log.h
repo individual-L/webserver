@@ -52,28 +52,28 @@ private:
 }
 #define LOG_DEBUG(format,...){
   if(m_close_log == 0){
-    get_instance()->write_log(0,format,##__VAL_ARGS__);
+    get_instance()->write_log(0,format,##__VA_ARGS__);
   }
   get_instance()->flush();
 }
 #define LOG_INFO(format,...){
   if(m_close_log == 0){
-    get_instance()->write_log(1,format,##__VAL_ARGS__);
+    get_instance()->write_log(1,format,##__VA_ARGS__);
   }
   get_instance()->flush();
 }
 #define LOG_WARN(format,...){
   if(m_close_log == 0){
-    get_instance()->write_log(2,format,##__VAL_ARGS__);
+    get_instance()->write_log(2,format,##__VA_ARGS__);
   }
   get_instance()->flush();
 }
 #define LOG_ERROR(format,...){
   if(m_close_log == 0){
-    get_instance()->write_log(3,format,##__VAL_ARGS__);
+    get_instance()->write_log(3,format,##__VA_ARGS__);
   }
   get_instance()->flush();
-}
+};
 
 
 #endif
