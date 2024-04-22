@@ -2,15 +2,15 @@
 #define BLOCK_QUEUE_H
 #include"../lock/lock.h"
 #include<sys/time.h>
-
+#include<stdlib.h>
 template<class T>
 class block_queue{
 public:
   block_queue(int max_size = 1000):m_max_size(max_size),m_cur_size(0),m_front(-1),m_back(-1){
-    if(max_size_ <= 0){
+    if(max_size <= 0){
       exit(-1);
     }
-    m_array = new T[max_size_];
+    m_array = new T[max_size];
   }
   ~block_queue(){
     m_mutex.lock();
@@ -21,7 +21,7 @@ public:
   }
   bool full(){
     m_mutex.lock();
-    if (m_size >= m_max_size)
+    if (m_cur_size >= m_max_size)
     {
 
         m_mutex.unlock();
@@ -48,7 +48,7 @@ public:
   }
   bool front(T & value){
     m_mutex.lock();
-    if (0 == m_size)
+    if (0 == m_cur_size)
     {
         m_mutex.unlock();
         return false;
@@ -59,7 +59,7 @@ public:
   }
   bool back(T & value){
     m_mutex.lock();
-    if (0 == m_size)
+    if (0 == m_cur_size)
     {
         m_mutex.unlock();
         return false;
@@ -110,7 +110,7 @@ public:
     }
 
     m_front = (front + 1) % m_max_size;
-    item = T[m_front];
+    item = m_array[m_front];
     m_cur_size -= 1;
     m_mutex.unlock();
     return true;
@@ -128,13 +128,13 @@ public:
         return false;
       }
     }
-    if (m_size <= 0)
+    if (m_cur_size <= 0)
     {
         m_mutex.unlock();
         return false;
     }
     m_front = (front + 1) % m_max_size;
-    item = T[m_front];
+    item = m_array[m_front];
     m_cur_size -= 1;
     m_mutex.unlock();
     return true; 

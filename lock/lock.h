@@ -27,7 +27,7 @@ public:
 
 private:
   pthread_mutex_t m_mutex;
-}
+};
 //信号量
 class sem{
 private:
@@ -52,11 +52,11 @@ public:
   bool wait(){
     return sem_wait(&m_sem) == 0;
   }
-}
+};
 //条件变量
 class cond{
 private:
-pthread_condi_t m_cond;
+pthread_cond_t m_cond;
 public:
     cond()
     {
@@ -91,7 +91,7 @@ public:
     bool broadcast(){
       return pthread_cond_broadcast(&m_cond) == 0;
     }
-}
+};
 
 
 #endif

@@ -8,8 +8,8 @@
 using namespace std;
 class Log{
 public:
-  Log * get_instance(){
-    static Log log();
+  static Log * get_instance(){
+    static Log log;
     return &log;
   }
   static void *flush_log_thread(void *args)
