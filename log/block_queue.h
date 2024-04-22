@@ -92,8 +92,8 @@ public:
       return false;
     }
 
-    back = (back + 1) % m_max_size;
-    m_array[back] = item;
+    m_back = (m_back + 1) % m_max_size;
+    m_array[m_back] = item;
     m_cur_size += 1;
 
     m_cond.broadcast();
@@ -109,7 +109,7 @@ public:
       }
     }
 
-    m_front = (front + 1) % m_max_size;
+    m_front = (m_front + 1) % m_max_size;
     item = m_array[m_front];
     m_cur_size -= 1;
     m_mutex.unlock();
@@ -133,7 +133,7 @@ public:
         m_mutex.unlock();
         return false;
     }
-    m_front = (front + 1) % m_max_size;
+    m_front = (m_front + 1) % m_max_size;
     item = m_array[m_front];
     m_cur_size -= 1;
     m_mutex.unlock();
