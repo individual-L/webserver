@@ -8,7 +8,7 @@
 class locker{
 public:
   locker(){
-    if(pthread_mutex_init(m_mutex) != 0){
+    if(pthread_mutex_init(&m_mutex) != 0){
       throw std::exception();
     }
   }
