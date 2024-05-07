@@ -1,10 +1,10 @@
 #ifndef LOG_H
 #define LOG_H
-#include"block_queue.h"
 #include<pthread.h>
 #include<string>
 #include<stdio.h>
 #include"block_queue.h"
+#include<stdarg.h>
 using namespace std;
 class Log{
 public:
@@ -17,7 +17,7 @@ public:
       Log::get_instance()->async_write_log();
   }
   //初始化成员变量，创建日志文件，初始化日志名（加上时间信息）
-  bool init(const char *file_name, int close_log, int log_buf_size = 8192, int split_lines = 50000, int max_queue_size = 0);
+  bool init(const char *file_name, int close_log, int log_buf_size = 5000, int split_lines = 5000, int max_queue_size = 0);
   //强制刷新缓冲区fflush(m_buf);
   void flush(void);
   //像缓冲区写入信息
@@ -40,7 +40,7 @@ private:
   char dir_name[128];               //路径名
   int m_log_buf_size;               //日志缓冲区大小
   int m_day;                        //记录日志的日数
-  int m_split_lines;                 //最好行数
+  int m_split_lines;                 //最多行数
   long long m_cur_line;             //当前行数
   FILE * m_fp;                      //指向日志文件的指针
   char *m_buf;                      //缓冲区
@@ -49,31 +49,14 @@ private:
   locker m_mutex;                   //互斥锁
   int m_close_log;                  //是否关闭日志
 
-}
-#define LOG_DEBUG(format,...){
-  if(m_close_log == 0){
-    get_instance()->write_log(0,format,##__VA_ARGS__);
-  }
-  get_instance()->flush();
-}
-#define LOG_INFO(format,...){
-  if(m_close_log == 0){
-    get_instance()->write_log(1,format,##__VA_ARGS__);
-  }
-  get_instance()->flush();
-}
-#define LOG_WARN(format,...){
-  if(m_close_log == 0){
-    get_instance()->write_log(2,format,##__VA_ARGS__);
-  }
-  get_instance()->flush();
-}
-#define LOG_ERROR(format,...){
-  if(m_close_log == 0){
-    get_instance()->write_log(3,format,##__VA_ARGS__);
-  }
-  get_instance()->flush();
 };
+#define LOG_DEBUG(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(0, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+
+#define LOG_INFO(format, ...)if(0 == m_close_log){Log::get_instance()->write_log(1,format, ##__VA_ARGS__);Log::get_instance()->flush();}
+
+#define LOG_WARN(format,...)if(0 == m_close_log){Log::get_instance()->write_log(2,format, ##__VA_ARGS__);Log::get_instance()->flush();}
+
+#define LOG_ERROR(format,...)if(0 == m_close_log){Log::get_instance()->write_log(3,format, ##__VA_ARGS__);Log::get_instance()->flush();}
 
 
 #endif

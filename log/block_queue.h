@@ -1,6 +1,6 @@
 #ifndef BLOCK_QUEUE_H
 #define BLOCK_QUEUE_H
-#include"../lock/lock.h"
+#include"../lock/locker.h"
 #include<sys/time.h>
 #include<stdlib.h>
 template<class T>
@@ -123,7 +123,7 @@ public:
     if(m_cur_size <= 0){
       t.tv_sec = now.tv_sec + time_out / 1000;
       t.tv_nsec = (time_out % 1000) * 1000;
-      if(!m_cond.wait(m_mutex.get(),t)){
+      if(!m_cond.timewait(m_mutex.get(),t)){
         m_mutex.unlock();
         return false;
       }

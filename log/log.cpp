@@ -1,6 +1,7 @@
 #include "log.h"
 #include<sys/time.h>
-#include<stdarg.h>
+#include<string.h>
+#include<string>
 Log::Log()
 {
     m_cur_line = 0;
@@ -17,15 +18,15 @@ bool Log::init(const char *file_name, int close_log, int log_buf_size, int split
   //true 为异步日志系统，创建线程进行异步写入日志 
   if(max_queue_size >= 1){
     m_is_async = true;
-    m_log_queue<string> = new m_log_queue(max_queue_size);
+    m_log_queue = new block_queue<std::string>(max_queue_size);
     pthread_t tid;
-    tid = pthread_create(&pid,NULL,flush_log_thread,NULL);
+    tid = pthread_create(&tid,NULL,flush_log_thread,NULL);
   }
   m_close_log = close_log;
   m_log_buf_size = log_buf_size;
   m_split_lines = split_lines;
   m_buf = new char[m_log_buf_size];
-  memset(&m_buf,0,m_buf);
+  memset(m_buf,'\0',m_log_buf_size);
 
   time_t t = time(NULL);
   struct tm *sys_tm = localtime(&t);
@@ -34,12 +35,13 @@ bool Log::init(const char *file_name, int close_log, int log_buf_size, int split
   const char * p = strrchr(file_name,'/');
   char log_full_name[256] = {0};
 
+
   if(p == nullptr){
-    snprintf(log_full_name,255,"%d-%02d-%02d_%s",my_tm.tm_year + 1900,my_tm.tm_mon + 1,my_tm.tm_mday, file_name);
+    snprintf(log_full_name,255,"%d_%02d_%02d_%s",my_tm.tm_year + 1900,my_tm.tm_mon + 1,my_tm.tm_mday, file_name);
   }else{
     strcpy(log_name,p + 1);
-    strcpy(dir_name,file_name,p - file_name + 1);
-    snprintf(log_full_name,255,"%s%d-%02d-%02d_%s",dir_name,my_tm.tm_year + 1900,my_tm.tm_mon + 1,my_tm.tm_mday, file_name); 
+    strncpy(dir_name,file_name,p - file_name + 1);
+    snprintf(log_full_name,255,"%s%d_%02d_%02d_%s",dir_name,my_tm.tm_year + 1900,my_tm.tm_mon + 1,my_tm.tm_mday, log_name); 
   }
   m_day = my_tm.tm_mday;
 
@@ -50,13 +52,14 @@ bool Log::init(const char *file_name, int close_log, int log_buf_size, int split
   return true;
 }
 
-bool Log::write_log(int level,const char * format,...){
+void Log::write_log(int level,const char * format,...){
   //秒和纳秒
-  struct timespec now = {0,0};
+  struct timeval now = {0,0};
   //从1970年1月1号00:00（UTC）到当前的时间跨度
   gettimeofday(&now,NULL);
+  time_t t = now.tv_sec;
   //localtime根据t的秒数和当地时间的格式来格式化,但是localtime只会定义一个指针，每次调用都会修改同一处内存，然后都会返回这同一个指针，所以localtime并不是线程安全的
-  struct tm *sys_tm = localtime(&now);
+  struct tm *sys_tm = localtime(&t);
   struct tm my_tm = *sys_tm;
   char start[16] = {0};
   switch (level)
@@ -83,15 +86,15 @@ bool Log::write_log(int level,const char * format,...){
   if(m_day != my_tm.tm_mday || m_cur_line % m_split_lines == 0){
     char new_log[256] = {0};
     char tail[16] = {0};
-    snprintf(tail, 16, "%d-%02d-%02d_", my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday);
+    snprintf(tail, 16, "%d_%02d_%02d_", my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday);
 
     if (m_day != my_tm.tm_mday)
     {
         snprintf(new_log, 255, "%s%s%s", dir_name, tail, log_name);
-        m_today = my_tm.tm_mday;
+        m_day = my_tm.tm_mday;
         m_cur_line = 0;
     }else{
-        snprintf(new_log, 255, "%s%s%s.%11d", dir_name, tail, log_name,m_cur_line / m_split_lines);
+        snprintf(new_log, 255, "%s%s%s.%lld", dir_name, tail, log_name,m_cur_line / m_split_lines);
     }
     fopen(new_log,"a");
   }
@@ -103,9 +106,11 @@ bool Log::write_log(int level,const char * format,...){
   string log_str;
   m_mutex.lock();
   
-  int n = snprintf(m_buf,48,"%d-%02d-%02d %02d:%02d:%02d.%06ld %s",my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday,my_tm.tm_hour, my_tm.tm_min, my_tm.tm_sec, now.tv_usec, s);
-
-  int m = vsnprintf(m_buf,m_log_buf_size - n - 1,format,valist);
+    int n = snprintf(m_buf, 48, "%d_%02d_%02d %02d:%02d:%02d.%06ld %s ",
+                     my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday,
+                     my_tm.tm_hour, my_tm.tm_min, my_tm.tm_sec, now.tv_usec, start);
+    
+    int m = vsnprintf(m_buf + n, m_log_buf_size - n - 1, format, valist);
   m_buf[m + n] = '\n';
   m_buf[n + m + 1] = '\0';
 
@@ -120,7 +125,7 @@ bool Log::write_log(int level,const char * format,...){
       fputs(log_str.c_str(), m_fp);
       m_mutex.unlock();
   }
-  va_end(valst);
+  va_end(valist);
 }
 
 void Log::flush(void)
