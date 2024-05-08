@@ -27,13 +27,13 @@ void connection_pool::init(string url, string User, string PassWord, string DBNa
 		MYSQL * con = nullptr;
     con = mysql_init(con);
     if(con == nullptr){
-      LOG_ERROR("Mysql error!");
+      LOG_ERROR("Mysql error 1 !");
       exit(-1);
     }
 		con = mysql_real_connect(con, url.c_str(), User.c_str(), PassWord.c_str(), DBName.c_str(), Port, NULL, 0); 
-    if (con == NULL)
+    if (con == nullptr)
 		{
-			LOG_ERROR("MySQL Error");
+			LOG_ERROR("MySQL Error 2 !");
 			exit(1);
 		}
 		connList.push_back(con);

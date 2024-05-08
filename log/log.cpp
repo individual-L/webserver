@@ -2,6 +2,7 @@
 #include<sys/time.h>
 #include<string.h>
 #include<string>
+#include<iostream>
 Log::Log()
 {
     m_cur_line = 0;

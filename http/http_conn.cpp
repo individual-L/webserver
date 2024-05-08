@@ -1,6 +1,7 @@
 #include"http_conn.h"
 #include<mysql/mysql.h>
 #include<fstream>
+#include<iostream>
 int http_conn::m_epollfd = -1; 
 int http_conn::m_user_count = 0;
 
@@ -259,27 +260,27 @@ http_conn::HTTP_CODE http_conn::do_request(){
   strcpy(m_real_file,doc_root);
   int len = strlen(m_real_file);
   const char *p = strrchr(m_url,'/');
-
+  // std::cout<<"m_method:"<<m_method<<",cgi:"<<cgi<<",序号:"<<p[1]<<endl;
   //POST请求
-  if(cgi == 1 && (*(p + 1) == 2 || *(p + 1) == 3)){
+  if(cgi == 1 && (*(p + 1) == '2' || *(p + 1) == '3')){
     char * real_file = (char *)malloc(sizeof(char) * 200);
     strcpy(real_file,"/");
     strcat(real_file,m_url+2);
     strncpy(m_real_file + len,real_file,FILENAME_LEN - len - 1);
+    LOG_INFO("real_file:%s ",real_file);
     free(real_file);
 
-    LOG_INFO("real_file:%s: ",real_file);
     LOG_INFO("m_real_file:%s: ",m_real_file);
 
     //过去用户名和密码
     char name[200],passwd[200];
     int i = 0;
-    for(i = 5;i < m_string[i] != '&';++i){
+    for(i = 5;m_string[i] != '&';++i){
       name[i - 5] = m_string[i];
     }
     name[i - 5] = '\0';
     int j = 0;
-    for(i += 10;i < m_string[i] != '&';++i,++j){
+    for(i += 10;m_string[i] != '\0';++i,++j){
       passwd[j] = m_string[i];
     }
     passwd[j] = '\0';

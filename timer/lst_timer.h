@@ -64,7 +64,7 @@ public:
     //将内核事件表注册读事件，ET模式，选择开启EPOLLONESHOT
     void addfd(int epollfd, int fd, bool one_shot, int TRIGMode);
     //设置信号函数
-    void addsig(int sig, void(handler)(int), bool restart);
+    void addsig(int sig, void(handler)(int), bool restart = true);
     //对文件描述符设置非阻塞
     int setnonblocking(int fd);
     //定时处理任务，重新定时以不断触发SIGALRM信号

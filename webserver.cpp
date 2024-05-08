@@ -74,14 +74,14 @@ void WebServer::trig_mode()
 void WebServer::log_write(){
   if(m_close_log == 0){
     if(m_log_write == 1){
-      Log::get_instance()->init("./ServerLog.txt",m_close_log,2000,20000,800);
+      Log::get_instance()->init("./ServerLog",m_close_log,2000,20000,800);
     }else{
-      Log::get_instance()->init("./ServerLog.txt",m_close_log,2000,20000,0);
+      Log::get_instance()->init("./ServerLog",m_close_log,2000,20000,0);
     }
   }
 }
 void WebServer::sql_pool(){
-    m_connPool = connection_pool::get_instance();
+    m_connPool = connection_pool::GetInstance();
   	// void init(string url, string User, string PassWord, string DataBaseName, int Port, int MaxConn, int close_log); 
     m_connPool->init("localhost",m_user,m_passWord,m_databaseName,3306,m_sql_num,m_close_log);
 
@@ -110,7 +110,7 @@ void WebServer::eventListen(){
   address.sin_port = htons(m_port);
 
   int flag = 1;
-  setsockopt(m_listenfd,SOL_SOCKET,REUSEADDR,&flag,sizeof(flag));
+  setsockopt(m_listenfd,SOL_SOCKET,SO_REUSEADDR,&flag,sizeof(flag));
 
   int res = 0;
   res = bind(m_listenfd,(struct sockaddr *)&address,sizeof(address));
@@ -131,18 +131,18 @@ void WebServer::eventListen(){
   
   utils.setnonblocking(m_pipefd[1]);
   utils.addfd(m_epollfd,m_pipefd[0],false,0);
-  //忽略该信号
-  utils.addsig(SIGPIPE,SIG_GIN);
-  utils.addsig(SIGALRM,utils.sig_handler,false);
-  utils.addsig(SIGTERM,utils.sig_handler,false);
+  //如果客户端关闭，服务端还向其发送信号，则会收到SIGPIPE的信号，此信号默认行为为关闭进程,故忽使用SIG_IGN略该信号
+  utils.addsig(SIGPIPE, SIG_IGN);
+  utils.addsig(SIGALRM, utils.sig_handler, false);
+  utils.addsig(SIGTERM, utils.sig_handler, false);
 
   alarm(TIMESLOT);
-  utils::u_epollfd = m_epollfd;
-  utils::u_pipefd = m_pipefd;
+  utils.u_epollfd = m_epollfd;
+  utils.u_pipefd = m_pipefd;
 }
 void WebServer::timer(int connfd, struct sockaddr_in client_address){
 
-  usres[connfd].init(connfd,client_address,m_user,m_passWord,m_databaseName,m_close_log,m_CONNTrigmode,m_root);
+  users[connfd].init(connfd,client_address,m_user,m_passWord,m_databaseName,m_close_log,m_CONNTrigmode,m_root);
 
   //初始化client_data数据
   //创建定时器，设置回调函数和超时时间，绑定用户数据，将定时器添加到链表中
@@ -153,23 +153,23 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address){
   timer->user_data = &users_timer[connfd];
   timer->cb_func = cb_func;
 
-  timer_t cur = time(NULL);
+  time_t cur = time(NULL);
   timer->expire = cur + 3 * TIMESLOT;
   users_timer[connfd].timer = timer;
   utils.m_timer_lst.add_timer(timer);
 }
 
-void WebServer::deal_timer(util_timer *timer, int sockfd){
-  utils.cb_func(&users_timer[sockfd]);
+void WebServer::del_timer(util_timer *timer, int sockfd){
+  cb_func(&users_timer[sockfd]);
   if(timer){
-    utils.m_timer_lst.deal_timer(timer);
+    utils.m_timer_lst.del_timer(timer);
   }
   LOG_INFO("close fd %d",users_timer[sockfd].sockfd);
 }
 
 void WebServer::adjust_timer(util_timer *timer){
     time_t cur = time(NULL);
-    timer->exipre = cur + 3 * TIMESLOT;
+    timer->expire = cur + 3 * TIMESLOT;
     utils.m_timer_lst.adjust_timer(timer);
 
     LOG_INFO("%s","timer adjust once");
@@ -214,8 +214,8 @@ bool WebServer::dealclientdata(){
   return true;
 }
 bool WebServer::dealwithsignal(bool& timeout, bool& stop_server){
-  char * masg[1024];
-  int len = recv(m_pipefd[0],mags,sizeof(masg),0);
+  char masg[1024];
+  int len = recv(m_pipefd[0],masg,sizeof(masg),0);
   if(len <= 0){
     return false;
   }else{
@@ -238,13 +238,13 @@ void WebServer::dealwithread(int sockfd){
     if(timer){
       adjust_timer(timer);
     }
-    m_pool->append(users[sockfd],0);
+    m_pool->append(users + sockfd,0);
     while(1){
       //是否调用函数
       if(users[sockfd].improv == 1){
         //接收是否数据失败
         if(users[sockfd].timer_flag == 1){
-          deal_timer(timer,sockfd);
+          del_timer(timer,sockfd);
           users[sockfd].timer_flag = 0;
         }
         users[sockfd].improv = 0;
@@ -253,31 +253,31 @@ void WebServer::dealwithread(int sockfd){
     }
   }else{
     if(users[sockfd].read_once()){
-      LOG_INFO("deal with client:%s",inet_ntoa(users[sockfd].get_address()->sin_addr));
+      LOG_INFO("read_deal with the client:%s ,sockfd: %d",inet_ntoa(users[sockfd].get_address()->sin_addr),sockfd);
       //读取成功，异步处理缓冲区数据
-      m_pool.append_p(users[sockfd]);
+      m_pool->append_p(users + sockfd);
       if(timer){
         adjust_timer(timer);
       }
     }else{
-      deal_timer(timer,sockfd);
+      del_timer(timer,sockfd);
     }
   }
 }
 void WebServer::dealwithwrite(int sockfd){
-  util_timer * timer = users_timer[sockfd];
+  util_timer * timer = users_timer[sockfd].timer;
   //reactor
-  if(m_actor_model == 1){
+  if(m_actormodel == 1){
     if(timer){
       adjust_timer(timer);
     }
 
-    m_pool.append(users[sockfd],1);
+    m_pool->append(users + sockfd,1);
 
     while(1){
       if(users[sockfd].improv == 1){
         if(users[sockfd].timer_flag == 1){
-          deal_timer(timer,sockfd);
+          del_timer(timer,sockfd);
           users[sockfd].timer_flag = 0;
         }
         users[sockfd].improv = 0;
@@ -287,22 +287,24 @@ void WebServer::dealwithwrite(int sockfd){
 
   }else{
     if(users[sockfd].write()){
-      LOG_INFO("deal with client %d",inet_ntoa(users[sockfd].get_address()->sin_addr));
+      LOG_INFO("write_deal with the client: %d,sockfd: %d",inet_ntoa(users[sockfd].get_address()->sin_addr),sockfd);
       if(timer){
         adjust_timer(timer);
       }
     }else{
-      deal_timer(timer,sockfd);
+      del_timer(timer,sockfd);
     }
   }
 }
 void WebServer::eventLoop(){
   bool stop_server = false;
   bool timeout = false;
-  while(stop_server){
+  while(!stop_server){
     int number = epoll_wait(m_epollfd,events,MAX_EVENT_NUMBER, -1);
-    if(number < 0 && errno != EAGAIN){
+    //EINTR表示信号中断引起的错误，故继续循环。
+    if(number < 0 && errno != EINTR){
       LOG_ERROR("%s","epoll failure");
+      break;
     }
     for(int i = 0; i < number;++i){
       int sockfd = events[i].data.fd;
@@ -315,9 +317,9 @@ void WebServer::eventLoop(){
         //服务器端关闭连接，将对应的定时器关闭
       }else if(events[i].events & (EPOLLRDHUP | EPOLLHUP |EPOLLERR)){
         util_timer * timer = users_timer[sockfd].timer;
-        deal_timer(timer,sockfd);
+        del_timer(timer,sockfd);
       }else if(sockfd == m_pipefd[0] && (events[i].events & EPOLLIN)){
-        bool flags = dealwithsignal(&timeout,&stop_server);
+        bool flags = dealwithsignal(timeout,stop_server);
         if(!flags){
           LOG_ERROR("%s", "dealwithsignal failure");
         }

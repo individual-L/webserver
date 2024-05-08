@@ -152,7 +152,7 @@ void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
     setnonblocking(fd);
 }
 
-void Utils::addsig(int sig, void(handler)(int), bool restart = true){
+void Utils::addsig(int sig, void(handler)(int), bool restart){
     struct sigaction sa;
     memset(&sa,'\0',sizeof(sa));
     sa.sa_handler = handler;
